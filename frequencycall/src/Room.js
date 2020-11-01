@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import io from 'socket.io-client';
 import Peer from 'simple-peer';
 import * as Chance from 'chance';
+
 import Video from './Video';
 
 const chance = new Chance();
@@ -19,39 +20,6 @@ const Room = (props) => {
 
   const roomId = props.match.params.roomId;
 
-  function createPeer(userToSignal, callerId, stream) {
-    const peer = new Peer({
-      initiator: true,
-      trickle: false,
-      stream,
-    });
-
-    peer.on('signal', (signal) => {
-      socketRef.current.emit('initiate-signal', {
-        userToSignal,
-        callerId,
-        signal,
-      });
-    });
-    return peer;
-  }
-
-  function addPeer(incomingSignal, callerId, stream) {
-    const peer = new Peer({
-      initiator: false,
-      trickle: false,
-      stream,
-    });
-
-    peer.on('signal', (signal) => {
-      socketRef.current.emit('ack-signal', { signal, callerId });
-    });
-
-    peer.signal(incomingSignal);
-
-    return peer;
-  }
-
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -60,16 +28,16 @@ const Room = (props) => {
 
         socketRef.current = io.connect('http://localhost:3001');
 
-        // sending the user detais and roomid to join in the room
+        // sending the user details and roomid to join in the room
         socketRef.current.emit('join-room', roomId, userDetails);
 
         socketRef.current.on('users-present-in-room', (users) => {
           const peers = [];
 
-          // to all users who are already in the room initiating a peer connection
+          // To all users who are already in the room initiating a peer connection
           users.forEach((user) => {
             const peer = createPeer(
-              user.socket.Id,
+              user.socketId,
               socketRef.current.id,
               stream
             );
@@ -105,14 +73,14 @@ const Room = (props) => {
           ]);
         });
 
-        //once the signal is accepted calling the signal with signal
+        // once the signal is accepted calling the signal with signal
         // from other user so that stream can flow between peers
         socketRef.current.on('signal-accepted', (payload) => {
           const item = peersRef.current.find((p) => p.peerId === payload.id);
           item.peer.signal(payload.signal);
         });
 
-        //if some user is disconnected removing the references
+        // if some user is disconnected removing his references.
         socketRef.current.on('user-disconnected', (payload) => {
           const item = peersRef.current.find((p) => p.peerId === payload);
           if (item) {
@@ -126,12 +94,55 @@ const Room = (props) => {
       });
   }, []);
 
+  function createPeer(userToSignal, callerId, stream) {
+    const peer = new Peer({
+      initiator: true,
+      trickle: false,
+      stream,
+    });
+
+    peer.on('signal', (signal) => {
+      socketRef.current.emit('initiate-signal', {
+        userToSignal,
+        callerId,
+        signal,
+      });
+    });
+
+    return peer;
+  }
+
+  function addPeer(incomingSignal, callerId, stream) {
+    const peer = new Peer({
+      initiator: false,
+      trickle: false,
+      stream,
+    });
+
+    peer.on('signal', (signal) => {
+      socketRef.current.emit('ack-signal', { signal, callerId });
+    });
+
+    peer.signal(incomingSignal);
+
+    return peer;
+  }
+
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         <video muted ref={refVideo} autoPlay playsInline />
         <span>{userDetails.name}</span>
       </div>
+      {peers.map((peer, index) => {
+        return (
+          <Video
+            key={peersRef.current[index].peerId}
+            peer={peer.peerObj}
+            name={peersRef.current[index].name}
+          />
+        );
+      })}
     </div>
   );
 };
