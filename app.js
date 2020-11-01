@@ -14,7 +14,7 @@ io.on('connection', (socket) => {
 
     // adding map users to room
     if (users[roomId]) {
-      user[roomId].push({ socketId: socket.id, ...userDetails });
+      users[roomId].push({ socketId: socket.id, ...userDetails });
     } else {
       users[roomId] = [{ socketId: socket.id, ...userDetails }];
     }
@@ -25,8 +25,8 @@ io.on('connection', (socket) => {
       (user) => user.socketId !== socket.id
     );
 
-    // once a new user had joined sending the details of
-    // users who are already present in room.
+    /* once a new user has joined sending the details of
+    users who are already present in room. */
     socket.emit('users-present-in-room', usersInThisRoom);
   });
 
@@ -39,8 +39,8 @@ io.on('connection', (socket) => {
       name = user.name;
     }
 
-    //once a peer wants to initiate signal,
-    // to old user sending the user details along with signal
+    /* once a peer wants to initiate signal,
+    To old user sending the user details along with signal */
     io.to(payload.userToSignal).emit('user-joined', {
       signal: payload.signal,
       callerId: payload.callerId,
@@ -48,8 +48,8 @@ io.on('connection', (socket) => {
     });
   });
 
-  // once the peer acknowledge signal sending the
-  // acknowledgement back so that it can stream peer to peer
+  /* once the peer acknowledge signal sending the
+  acknowledgement back so that it can stream peer to peer. */
   socket.on('ack-signal', (payload) => {
     io.to(payload.callerId).emit('signal-accepted', {
       signal: payload.signal,
